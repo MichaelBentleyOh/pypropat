@@ -1,11 +1,11 @@
 import numpy as np
-import kinematics
-import orbit
-from scipy import integrate
 import matplotlib.pyplot as plt
 import copy
 from scipy.integrate import solve_ivp
+import os
+from core.orbit import *
 
+# Revised at 04.23.2025 - Success
 # egm_demo
 # Program to demonstrate how to use the Earth Gravity Model functions
 # and the numeric orbit propagator
@@ -15,21 +15,24 @@ deg2rad = np.pi/180
 ### Initial condition (meters, radians) ###
 kepel = np.array([7000000, 0.01, 98*deg2rad, 0, 35*deg2rad, 0])
 
-stat = orbit.kepel_statvec(kepel)
+stat = Orbit.kepel_statvec(kepel)
 
-delk = orbit.delkep(kepel)
+delk = Orbit.delkep(kepel)
 
 year = 2017
-mjd = orbit.djm(17, 7, year)
+mjd = Orbit.djm(17, 7, year)
 
-dfra = orbit.time_to_dayf(23,0,0)
+dfra = Orbit.time_to_dayf(23,0,0)
 
 tstart = 0
-tstep = 100
+tstep = 1
 tend = 6000
 n = int(np.fix(tend/tstep))+1
 
-orbit.egm_read_data('egm_10.dat')
+current_dir = os.path.dirname(__file__)
+data_path = os.path.join(current_dir, '../core/egm_10.dat')
+data_path = os.path.abspath(data_path)
+Orbit.egm_read_data(data_path)
 
 # data storage
 z1      	= np.zeros((1,n))
@@ -60,13 +63,13 @@ for t in np.arange(tstart, tend+tstep, tstep):
 	kp_an = kepel + delk*t
 
 	# Convert from keplerian elements to state vector
-	sv_an = orbit.kepel_statvec(kp_an).squeeze(0)
+	sv_an = Orbit.kepel_statvec(kp_an).squeeze(0)
 
 	xi_an = sv_an[0:3]
 	vi_an = sv_an[3:6]
 
 	# Orbit reference frame rotation matrix
-	c_i_o = orbit.orbital_to_inertial_matrix(kp_an)
+	c_i_o = Orbit.orbital_to_inertial_matrix(kp_an)
 
 	# tspan = np.array([t,t+tstep/2,t+tstep])
 	tspan = np.linspace(t, t+tstep, 50)
@@ -74,7 +77,7 @@ for t in np.arange(tstart, tend+tstep, tstep):
 	ext_acc = dist_acc + cont_acc
 
 	def func(t, x, mjd=mjd, dsec=dfra, ext_acc=ext_acc):
-		return orbit.egm_difeq(t, x, mjd, dsec, ext_acc)
+		return Orbit.egm_difeq(t, x, mjd, dsec, ext_acc)
 
 	sol = solve_ivp(func,(t, t+tstep),tuple(stat.squeeze(0)),rtol=1e-12, atol=1e-12)
 	Y = sol.y
@@ -86,10 +89,10 @@ for t in np.arange(tstart, tend+tstep, tstep):
 	stat = sv_nm.reshape((1,6))		# state vector update
 
 	# numerically propagated keplerian elements
-	kp_nm = orbit.statvec_kepel(np.transpose(sv_nm))
+	kp_nm = Orbit.statvec_kepel(np.transpose(sv_nm))
 
 	# eccentric anomaly
-	ea_nm = orbit.kepler(kp_nm[5], kp_nm[1])
+	ea_nm = Orbit.kepler(kp_nm[5], kp_nm[1])
 
 	# geocentric distance
 	dist = kp_nm[0]*(1-kp_nm[1]*np.cos(ea_nm))
@@ -114,7 +117,7 @@ for t in np.arange(tstart, tend+tstep, tstep):
 	r_inc[ic] = kp_nm[2] - kp_an[2]
 	r_raan[ic] = kp_nm[3] - kp_an[3]
 	r_par[ic] = kp_nm[4] - kp_an[4]
-	r_ma[ic] = orbit.proximus(kp_nm[5], kp_an[5]) - kp_an[5]
+	r_ma[ic] = Orbit.proximus(kp_nm[5], kp_an[5]) - kp_an[5]
 	ic = ic+1
 
 
@@ -209,11 +212,3 @@ plt.ylabel('Relative mean anomaly (deg)')
 plt.title('Mean anomaly variation')
 
 plt.show()
-
-
-
-
-
-
-
-
