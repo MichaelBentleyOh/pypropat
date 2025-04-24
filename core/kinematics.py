@@ -515,6 +515,23 @@ class Kinematics:
     
         return angle
     
+    def quatezyx(q):
+        """
+        Parameters:
+        quaternion : np.array (4x1)
+            Attitude quaternion [q1, q2, q3, q4] where Q = q1 i + q2 j + q3 k + q4
+        Returns:
+        rot_mat : np.array  (3x1)
+            euler angle vector (3, 1) as a xyz sequence rotation
+        """
+        if q.ndim == 1:
+            q = q.reshape(4, 1)
+        
+        rot_mat = Kinematics.quatrmx(q)
+        angle = Kinematics.rmxezyx(rot_mat)
+    
+        return angle
+    
     def quatezxz(q):
         """
         Parameters:
@@ -583,149 +600,145 @@ class Kinematics:
     def trace(a):
         return np.trace(a)
 
-    # @staticmethod
-    # def proximus(angleinp, angleprox):
-    #     test = 2 * np.pi
-    #     angle = angleprox + np.mod((angleinp - angleprox + test / 2), test) - test / 2
-    #     return angle
+    @staticmethod
+    def proximus(angleinp, angleprox):
+        test = 2 * np.pi
+        angle = angleprox + np.mod((angleinp - angleprox + test / 2), test) - test / 2
+        return angle
     
-    # @staticmethod
-    # def rectangular_to_spherical(geoc):
-    #     px = geoc[0]
-    #     py = geoc[1]
-    #     pz = geoc[2]
-    #     ws = px * px + py * py
-    #     rw = np.sqrt(ws + pz * pz)
-    #     lg = np.arctan2(py, px)
-    #     lt = np.arctan2(pz, np.sqrt(ws))
-    #     spherical = np.array([lg, lt, rw])
-    #     return spherical
+    @staticmethod
+    def rectangular_to_spherical(geoc):
+        px = geoc[0]
+        py = geoc[1]
+        pz = geoc[2]
+        ws = px * px + py * py
+        rw = np.sqrt(ws + pz * pz)
+        lg = np.arctan2(py, px)
+        lt = np.arctan2(pz, np.sqrt(ws))
+        spherical = np.array([lg, lt, rw])
+        return spherical
     
-    # @staticmethod
-    # def geocentric_to_sph_geodetic(geoc):
-    #     EARTH_FLATNESS	= 0.0033528131778969144; # Flattening factor = 1./298.257
-    #     EARTH_RADIUS	= 6378139.;				 # Earth's radius in meters
-    #     px = geoc[0]
-    #     py = geoc[1]
-    #     pz = geoc[2]
-    #     gama = 1 - EARTH_FLATNESS
-    #     gama = gama * gama
-    #     eps = 1 - gama
-    #     radi = EARTH_RADIUS*EARTH_RADIUS
-    #     ws = px*px + py*py
-    #     zs = pz * pz
-    #     zs1 = gama*zs
-    #     e = 1
+    @staticmethod
+    def geocentric_to_sph_geodetic(geoc):
+        EARTH_FLATNESS	= 0.0033528131778969144; # Flattening factor = 1./298.257
+        EARTH_RADIUS	= 6378139.;				 # Earth's radius in meters
+        px = geoc[0]
+        py = geoc[1]
+        pz = geoc[2]
+        gama = 1 - EARTH_FLATNESS
+        gama = gama * gama
+        eps = 1 - gama
+        radi = EARTH_RADIUS*EARTH_RADIUS
+        ws = px*px + py*py
+        zs = pz * pz
+        zs1 = gama*zs
+        e = 1
 
-    #     det = 0.01*np.sqrt((2/3)/EARTH_RADIUS)
-    #     de = 2*det
+        det = 0.01*np.sqrt((2/3)/EARTH_RADIUS)
+        de = 2*det
 
-    #     while (de > det):
-    #         alf = e/(e-eps)
-    #         zs2 = zs1 * alf * alf
-    #         de = 0.5 * (ws + zs2 - radi*e*e)/((ws + zs2*alf)/e)
-    #         e = e + de
+        while (de > det):
+            alf = e/(e-eps)
+            zs2 = zs1 * alf * alf
+            de = 0.5 * (ws + zs2 - radi*e*e)/((ws + zs2*alf)/e)
+            e = e + de
 
-    #     ss = (e - eps)
-    #     ss = eps*zs/radi/ss/ss
-    #     ro = EARTH_RADIUS*((1. + ss)/(2. + ss) + 0.25*(2. + ss))
-    #     rw = e*ro
+        ss = (e - eps)
+        ss = eps*zs/radi/ss/ss
+        ro = EARTH_RADIUS*((1. + ss)/(2. + ss) + 0.25*(2. + ss))
+        rw = e*ro
 
-    #     arl = np.arctan2(py, px)
-    #     sf = pz/(rw - eps*ro)
-    #     cf = np.sqrt(ws)/rw
-    #     anorma = np.sqrt(sf*sf + cf*cf)
-    #     arf = np.arcsin(sf/anorma)
-    #     geodetic = np.array([arl, arf, rw - ro])
+        arl = np.arctan2(py, px)
+        sf = pz/(rw - eps*ro)
+        cf = np.sqrt(ws)/rw
+        anorma = np.sqrt(sf*sf + cf*cf)
+        arf = np.arcsin(sf/anorma)
+        geodetic = np.array([arl, arf, rw - ro])
 
-    #     return geodetic
+        return geodetic
     
-    # def inertial_to_terrestrial(tesig, xi):
-    #     """
-    #     Transforms a geocentric inertial state vector into geocentric terrestrial coordinates.
+    def inertial_to_terrestrial(tesig, xi):
+        """
+        Transforms a geocentric inertial state vector into geocentric terrestrial coordinates.
         
-    #     Parameters:
-    #     tesig : float
-    #         Greenwich sidereal time in radians.
-    #     xi : numpy.ndarray
-    #         Geocentric inertial position and velocity vector.
-    #         [x, y, z, vx, vy, vz] (position in meters, velocity in m/s)
+        Parameters:
+        tesig : float
+            Greenwich sidereal time in radians.
+        xi : numpy.ndarray
+            Geocentric inertial position and velocity vector.
+            [x, y, z, vx, vy, vz] (position in meters, velocity in m/s)
         
-    #     Returns:
-    #     numpy.ndarray
-    #         Corresponding geocentric terrestrial vector.
-    #     """
-    #     R = Kinematics.rotmaz(tesig)
+        Returns:
+        numpy.ndarray
+            Corresponding geocentric terrestrial vector.
+        """
+        R = Kinematics.rotmaz(tesig)
         
-    #     x_pos = R @ xi[:3]
-    #     x_vel = R @ xi[3:]
+        x_pos = R @ xi[:3]
+        x_vel = R @ xi[3:]
         
-    #     return np.hstack((x_pos, x_vel))
+        return np.hstack((x_pos, x_vel))
                 
-    # def sph_geodetic_to_geocentric(spgd):
-    #     """
-    #     Transforms spherical geodetic coordinates (longitude, latitude, altitude)
-    #     into rectangular terrestrial geocentric coordinates.
+    def sph_geodetic_to_geocentric(spgd):
+        """
+        Transforms spherical geodetic coordinates (longitude, latitude, altitude)
+        into rectangular terrestrial geocentric coordinates.
         
-    #     Parameters:
-    #     spgd : numpy.ndarray
-    #         Geodetic coordinates array: [longitude (rad), latitude (rad), altitude (m)]
+        Parameters:
+        spgd : numpy.ndarray
+            Geodetic coordinates array: [longitude (rad), latitude (rad), altitude (m)]
         
-    #     Returns:
-    #     numpy.ndarray
-    #         Geocentric rectangular coordinates [x, y, z] in meters.
-    #     """
-    #     EARTH_FLATNESS = 0.0033528131778969144  # Flattening factor = 1./298.257
-    #     EARTH_RADIUS = 6378139.0  # Earth's radius in meters
+        Returns:
+        numpy.ndarray
+            Geocentric rectangular coordinates [x, y, z] in meters.
+        """
+        EARTH_FLATNESS = 0.0033528131778969144  # Flattening factor = 1./298.257
+        EARTH_RADIUS = 6378139.0  # Earth's radius in meters
         
-    #     al = spgd[0]  # East longitude (radians)
-    #     h = spgd[2]   # Altitude (meters)
+        al = spgd[0]  # East longitude (radians)
+        h = spgd[2]   # Altitude (meters)
         
-    #     sf = np.sin(spgd[1])  # Sine of geodetic latitude
-    #     cf = np.cos(spgd[1])  # Cosine of geodetic latitude
+        sf = np.sin(spgd[1])  # Sine of geodetic latitude
+        cf = np.cos(spgd[1])  # Cosine of geodetic latitude
         
-    #     gama = (1.0 - EARTH_FLATNESS) ** 2
-    #     s = EARTH_RADIUS / np.sqrt(1.0 - (1.0 - gama) * sf ** 2)
+        gama = (1.0 - EARTH_FLATNESS) ** 2
+        s = EARTH_RADIUS / np.sqrt(1.0 - (1.0 - gama) * sf ** 2)
         
-    #     g1 = (s + h) * cf
-    #     x = g1 * np.cos(al)
-    #     y = g1 * np.sin(al)
-    #     z = (s * gama + h) * sf
+        g1 = (s + h) * cf
+        x = g1 * np.cos(al)
+        y = g1 * np.sin(al)
+        z = (s * gama + h) * sf
         
-    #     return np.array([x, y, z])
+        return np.array([x, y, z])
     
-    # def spherical_to_rectangular(spherical):
-    #     clat = np.cos(spherical[1])
-    #     geoc = np.array([
-    #         np.cos(spherical[0])*clat,
-    #         np.sin(spherical[0]*clat),
-    #         np.sin(spherical[1])
-    #     ]) * spherical[2]
+    def spherical_to_rectangular(spherical):
+        clat = np.cos(spherical[1])
+        geoc = np.array([
+            np.cos(spherical[0])*clat,
+            np.sin(spherical[0])*clat,
+            np.sin(spherical[1])
+        ]) * spherical[2]
 
-    #     return geoc
+        return geoc
     
-    # def terrestrial_to_inertial(tesig, xt):
-    #     """
-    #     Transforms geocentric terrestrial coordinates into geocentric inertial coordinates.
+    def terrestrial_to_inertial(tesig, xt):
+        """
+        Transforms geocentric terrestrial coordinates into geocentric inertial coordinates.
         
-    #     Parameters:
-    #     tesig : float
-    #         Greenwich sidereal time in radians.
-    #     xt : numpy.ndarray
-    #         Geocentric terrestrial position and velocity vector.
-    #         [x, y, z, vx, vy, vz] (position in meters, velocity in m/s)
+        Parameters:
+        tesig : float
+            Greenwich sidereal time in radians.
+        xt : numpy.ndarray
+            Geocentric terrestrial position and velocity vector.
+            [x, y, z, vx, vy, vz] (position in meters, velocity in m/s)
         
-    #     Returns:
-    #     numpy.ndarray
-    #         Corresponding geocentric inertial vector.
-    #     """
-    #     R_inv = Kinematics.rotmaz(-tesig)  # Inverse rotation
+        Returns:
+        numpy.ndarray
+            Corresponding geocentric inertial vector.
+        """
+        R_inv = Kinematics.rotmaz(-tesig)  # Inverse rotation
         
-    #     x_pos = R_inv @ xt[:3]
-    #     x_vel = R_inv @ xt[3:]
+        x_pos = R_inv @ xt[:3]
+        x_vel = R_inv @ xt[3:]
         
-    #     return np.hstack((x_pos, x_vel))
-    
-    
-    
-    
+        return np.hstack((x_pos, x_vel))
