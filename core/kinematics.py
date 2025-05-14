@@ -140,7 +140,8 @@ class Kinematics:
                 euler_vector[0] = np.sign(rot_mat[2, 0]) * euler_vector[0]
                 euler_vector[1] = np.sign(rot_mat[1, 2]) * euler_vector[1]
         else:
-            euler_angle = np.arccos((trace - 1) / 2)
+            value = np.clip((trace - 1) / 2, -1.0, 1.0)
+            euler_angle = np.arccos(value)
             sine = np.sin(euler_angle)
             euler_vector = np.array([
                 rot_mat[1, 2] - rot_mat[2, 1],
@@ -351,14 +352,19 @@ class Kinematics:
             Rotation matrix (3x3).
 
         Returns:
-        quaternions : np.array (4x1)
+        quaternions : np.array (4,)
             Attitude quaternions with the real part as the first element.
         """
+        # Check if rot_mat is a valid rotation matrix
+        if not np.allclose(rot_mat.T @ rot_mat, np.eye(3), atol=1e-6) or not np.isclose(np.linalg.det(rot_mat), 1.0, atol=1e-6):
+            raise ValueError("Input is not a valid rotation matrix")
+
         matra = np.trace(rot_mat)
         auxi = 1 - matra
         selec = np.array([1 + matra, auxi + 2 * rot_mat[0, 0], auxi + 2 * rot_mat[1, 1], auxi + 2 * rot_mat[2, 2]])
         ites = np.argmax(selec)
-        auxi = 0.5 * np.sqrt(selec[ites])
+        eps = 1e-8
+        auxi = 0.5 * np.sqrt(max(selec[ites], eps))
 
         if ites == 0:
             quaternions = np.array([
@@ -381,7 +387,7 @@ class Kinematics:
                 auxi,
                 (rot_mat[1, 2] + rot_mat[2, 1]) / (4 * auxi)
             ])
-        else:  # ites == 3
+        else:
             quaternions = np.array([
                 (rot_mat[0, 1] - rot_mat[1, 0]) / (4 * auxi),
                 (rot_mat[0, 2] + rot_mat[2, 0]) / (4 * auxi),
@@ -389,7 +395,9 @@ class Kinematics:
                 auxi
             ])
 
-        return quaternions.T
+        # Normalize the quaternion
+        return quaternions / np.linalg.norm(quaternions)
+
 
     @staticmethod
     def quat_matrix(q):
@@ -476,25 +484,22 @@ class Kinematics:
     @staticmethod
     def quatrmx(quaternion):
         """
-        Compute the rotation matrix from the quaternion.
+        Convert quaternion to rotation matrix (DCM).
 
         Parameters:
-        quaternion : np.array (4x1)
-            Attitude quaternion [q_real, qx, qy, qz] where Q = q_real + qx i + qy j + qz k.
+        quaternion : np.array (4,)
+            Quaternion [w, x, y, z]
 
         Returns:
         rot_mat : np.array (3x3)
-            Rotation matrix (3, 3) as euler rotation matrix (DCM)
+            Direction Cosine Matrix
         """
         q0, q1, q2, q3 = quaternion[0], quaternion[1], quaternion[2], quaternion[3]
-        q0q, q1q, q2q, q3q = q0 ** 2, q1 ** 2, q2 ** 2, q3 ** 2
-        q01, q02, q03 = 2 * q0 * q1, 2 * q0 * q2, 2 * q0 * q3
-        q12, q13, q23 = 2 * q1 * q2, 2 * q1 * q3, 2 * q2 * q3
 
         rot_mat = np.array([
-            [q0q + q1q - q2q - q3q, q12 - q03, q13 + q02],
-            [q12 + q03, q0q - q1q + q2q - q3q, q23 - q01],
-            [q13 - q02, q23 + q01, q0q - q1q - q2q + q3q]
+            [1 - 2*(q2**2 + q3**2),     2*(q1*q2 - q0*q3),     2*(q1*q3 + q0*q2)],
+            [2*(q1*q2 + q0*q3),     1 - 2*(q1**2 + q3**2),     2*(q2*q3 - q0*q1)],
+            [2*(q1*q3 - q0*q2),     2*(q2*q3 + q0*q1),     1 - 2*(q1**2 + q2**2)]
         ])
         return rot_mat
     
@@ -504,10 +509,11 @@ class Kinematics:
         quaternion : np.array (4x1)
             Attitude quaternion [q1, q2, q3, q4] where Q = q1 i + q2 j + q3 k + q4
         Returns:
-        rot_mat : np.array  (3x1)
-            euler angle vector (3, 1) as a xyz sequence rotation
+            euler_angle : np.array (3x1)
+            Euler angles (rad) in [x, y, z] order
         """
-        if q.ndim == 1:
+        if q.ndim != 1:
+            q = q.flatten()
             q = q.reshape(4, 1)
         
         rot_mat = Kinematics.quatrmx(q)
@@ -521,10 +527,11 @@ class Kinematics:
         quaternion : np.array (4x1)
             Attitude quaternion [q1, q2, q3, q4] where Q = q1 i + q2 j + q3 k + q4
         Returns:
-        rot_mat : np.array  (3x1)
-            euler angle vector (3, 1) as a xyz sequence rotation
+            euler_angle : np.array (3x1)
+            Euler angles (rad) in [z, y, x] order
         """
-        if q.ndim == 1:
+        if q.ndim != 1:
+            q = q.flatten()
             q = q.reshape(4, 1)
         
         rot_mat = Kinematics.quatrmx(q)
@@ -541,8 +548,9 @@ class Kinematics:
         rot_mat : np.array (3x1)
             Rotation matrix (3, 1) as a zyz sequence rotation
         """
-        if q.ndim == 1:
-            q = q.reshape(4,1)
+        if q.ndim != 1:
+            q = q.flatten()
+            q = q.reshape(4, 1)
 
         rot_mat = Kinematics.quatrmx(q)
         angle = Kinematics.rmxezxz(rot_mat)
