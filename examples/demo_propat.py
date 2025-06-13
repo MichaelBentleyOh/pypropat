@@ -1,5 +1,6 @@
+
 from core.orbit import *
-from core.kinematics import *
+from core.kinematics_new import *
 from core.control import *
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
@@ -113,7 +114,7 @@ for t in np.arange(tstart, tend+tstep, tstep):
 
 	# Store data to be plotted
 	time = np.concatenate([time, [t]], 0)
-	euler = np.concatenate([euler, np.transpose(eulzxz)*180/np.pi], 1)
+	euler = np.concatenate([euler, np.transpose([eulzxz])*180/np.pi], 1)
 	omeg = np.concatenate([omeg, np.transpose([w_ang])], 1)
 	orbit = np.concatenate([orbit, np.transpose(stat)], 1)
 	keorb = np.concatenate([keorb, np.transpose([kep2])], 1)
@@ -176,4 +177,3 @@ plt.title('Satellite velocity')
 plt.legend()
 
 plt.show()
-
